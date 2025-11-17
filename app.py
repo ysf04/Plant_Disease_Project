@@ -1,6 +1,6 @@
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 os.environ['TF_USE_LEGACY_KERAS'] = '1'
-
 import streamlit as st
 import tensorflow as tf
 import numpy as np
@@ -70,5 +70,6 @@ if file is not None:
         
         st.success(f"Prediction: {predicted_class}")
         st.info(f"Confidence: {confidence:.2f}%")
+
 
 
