@@ -7,7 +7,7 @@ import os
 
 # --- CONFIGURATION ---
 # REPLACE THIS with your actual Google Drive File ID
-file_id = 'YOUR_TFLITE_FILE_ID_HERE' 
+file_id = '1cE1YQoCdWpvxbJwXvJsm3Le9XXW0Jqb7' 
 model_filename = 'plant_disease_model.tflite'
 
 # Class Names
@@ -89,3 +89,4 @@ if file is not None:
 
     st.success(f"Prediction: {predicted_class}")
     st.info(f"Confidence: {confidence_percent:.2f}%")
+
