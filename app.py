@@ -7,7 +7,7 @@ import os
 
 # --- CONFIGURATION ---
 # REPLACE THIS with the Google Drive ID of your NEW .tflite file
-file_id = 'YOUR_NEW_TFLITE_FILE_ID' 
+file_id = '1cE1YQoCdWpvxbJwXvJsm3Le9XXW0Jqb7' 
 model_filename = 'plant_disease_model.tflite'
 
 # Class names (same as before)
@@ -81,4 +81,5 @@ if file is not None:
 
     st.success(f"Prediction: {predicted_class}")
     st.info(f"Confidence: {confidence:.2f}%")
+
 
