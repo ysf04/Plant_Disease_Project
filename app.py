@@ -6,9 +6,11 @@ import gdown
 import os
 
 # --- CONFIGURATION ---
-file_id = '1cE1YQoCdWpvxbJwXvJsm3Le9XXW0Jqb7' 
+# REPLACE THIS with your actual Google Drive File ID
+file_id = 'YOUR_TFLITE_FILE_ID_HERE' 
 model_filename = 'plant_disease_model.tflite'
 
+# Class Names
 class_names = [
     'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
     'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
@@ -30,67 +32,60 @@ def load_tflite_model():
     if not os.path.exists(model_filename):
         url = f'https://drive.google.com/uc?id={file_id}'
         gdown.download(url, model_filename, quiet=False)
+
     interpreter = tf.lite.Interpreter(model_path=model_filename)
     interpreter.allocate_tensors()
     return interpreter
 
-interpreter = load_tflite_model()
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
+# Load the model once
+try:
+    interpreter = load_tflite_model()
+except Exception as e:
+    st.error(f"Error loading model: {e}")
 
-st.title("🔍 Model Diagnostic Mode")
-st.write("Upload a leaf image to find the correct settings.")
+# App Interface
+st.title("Plant Disease Classifier 🌿")
+st.write("Upload an image of a plant leaf to detect diseases.")
 
 file = st.file_uploader("Choose a leaf image", type=["jpg", "png", "jpeg"])
 
 if file is not None:
     image = Image.open(file)
-    st.image(image, caption='Uploaded Image', width=300)
+    st.image(image, caption='Uploaded Image', use_column_width=True)
     
-    # GET MODEL EXPECTATIONS
-    expected_shape = input_details[0]['shape']
-    expected_dtype = input_details[0]['dtype']
+    # --- PREPROCESSING (The Winning Logic: 0 to 255) ---
+    # 1. Resize to 224x224
+    img = image.resize((224, 224))
     
-    st.write(f"**Model Expects Shape:** `{expected_shape}`")
-    st.write(f"**Model Expects Data Type:** `{expected_dtype}`")
-
-    # Prepare Base Image
-    target_h, target_w = expected_shape[1], expected_shape[2]
-    img_resized = image.resize((target_w, target_h))
-    img_array = np.array(img_resized)
-
-    # TEST 1: STANDARD (0 to 1)
-    # This is what we tried first
-    input_1 = img_array.astype(np.float32) / 255.0
-    input_1 = np.expand_dims(input_1, axis=0)
+    # 2. Convert to Array
+    img_array = np.array(img)
     
-    # TEST 2: INCEPTION (-1 to 1)
-    # This is what you remembered
-    input_2 = img_array.astype(np.float32)
-    input_2 = (input_2 - 127.5) / 127.5
-    input_2 = np.expand_dims(input_2, axis=0)
-
-    # TEST 3: RAW FLOATS (0 to 255)
-    # This is likely the fix if the others failed
-    input_3 = img_array.astype(np.float32)
-    input_3 = np.expand_dims(input_3, axis=0)
-
-    # Run Inference on ALL 3
-    results = []
+    # 3. Convert to Float32, but DO NOT DIVIDE by 255
+    # This keeps the values between 0.0 and 255.0
+    input_data = img_array.astype(np.float32)
     
-    for name, data in [("0 to 1", input_1), ("-1 to 1", input_2), ("0 to 255", input_3)]:
-        try:
-            interpreter.set_tensor(input_details[0]['index'], data)
-            interpreter.invoke()
-            preds = interpreter.get_tensor(output_details[0]['index'])
-            top_class = class_names[np.argmax(preds)]
-            confidence = np.max(preds) * 100
-            results.append(f"**{name}:** {top_class} ({confidence:.2f}%)")
-        except Exception as e:
-            results.append(f"**{name}:** Failed ({e})")
+    # 4. Add Batch Dimension
+    input_data = np.expand_dims(input_data, axis=0)
 
-    st.success("### Test Results")
-    for res in results:
-        st.markdown(res)
+    # --- INFERENCE ---
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
     
-    st.info("👉 The one with high confidence (>80%) is the correct one!")
+    interpreter.set_tensor(input_details[0]['index'], input_data)
+    interpreter.invoke()
+    
+    predictions = interpreter.get_tensor(output_details[0]['index'])
+    
+    # --- RESULTS ---
+    predicted_index = np.argmax(predictions)
+    predicted_class = class_names[predicted_index]
+    confidence = predictions[0][predicted_index]
+
+    # Handle confidence display (0-1 vs 0-100)
+    if confidence <= 1.0:
+        confidence_percent = confidence * 100
+    else:
+        confidence_percent = confidence
+
+    st.success(f"Prediction: {predicted_class}")
+    st.info(f"Confidence: {confidence_percent:.2f}%")
