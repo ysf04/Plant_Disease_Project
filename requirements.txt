@@ -2,4 +2,4 @@ streamlit
 numpy
 pillow
 gdown
-tensorflow-cpu   <-- You can keep this, or swap for 'tflite-runtime' if you are advanced
+tensorflow-cpu  
