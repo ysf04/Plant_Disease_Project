@@ -48,38 +48,51 @@ output_details = interpreter.get_output_details()
 st.title("Plant Disease Classifier (TFLite) 🌿")
 file = st.file_uploader("Choose a leaf image", type=["jpg", "png", "jpeg"])
 
+# ... inside your main code block ...
+
 if file is not None:
     image = Image.open(file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
     
-    # --- PREPROCESSING FOR TFLITE ---
-    # TFLite is strict about shapes. We must match input_details.
-    
-    # 1. Resize to (224, 224)
+    # 1. Resize
+    # Ensure this matches your training (try 224 first, if that fails try 256)
     img = image.resize((224, 224))
-    
-    # 2. Convert to array and normalize
-    img_array = np.array(img, dtype=np.float32)
-    img_array = img_array / 255.0
-    
-    # 3. Add batch dimension (1, 224, 224, 3)
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = np.array(img)
 
-    # --- INFERENCE ---
-    # Set the input tensor
-    interpreter.set_tensor(input_details[0]['index'], img_array)
+    # 2. Get Model Input Properties
+    input_details = interpreter.get_input_details()
+    input_type = input_details[0]['dtype']
     
-    # Run the model
+    # 3. Apply the Correct Normalization
+    if input_type == np.int8:
+        # IF Model expects Integers (-128 to 127)
+        # We shift 0..255 down to -128..127
+        input_data = (img_array - 128).astype(np.int8)
+        
+    elif input_type == np.uint8:
+        # IF Model expects Unsigned Integers (0 to 255)
+        input_data = img_array.astype(np.uint8)
+        
+    else:
+        # IF Model expects Floats (Standard for MobileNet/ResNet)
+        # We apply the "Inception" normalization: (x - 127.5) / 127.5
+        # This forces the range to be between -1.0 and 1.0
+        input_data = img_array.astype(np.float32)
+        input_data = (input_data - 127.5) / 127.5
+
+    # 4. Add Batch Dimension
+    input_data = np.expand_dims(input_data, axis=0)
+
+    # 5. Run Inference
+    interpreter.set_tensor(input_details[0]['index'], input_data)
     interpreter.invoke()
     
-    # Get the output tensor
+    output_details = interpreter.get_output_details()
     predictions = interpreter.get_tensor(output_details[0]['index'])
     
-    # --- RESULTS ---
-    predicted_class = class_names[np.argmax(predictions)]
-    confidence = 100 * np.max(predictions)
-
+    # ... rest of results code ...
     st.success(f"Prediction: {predicted_class}")
     st.info(f"Confidence: {confidence:.2f}%")
+
 
 
