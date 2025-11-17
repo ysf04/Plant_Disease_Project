@@ -1,12 +1,12 @@
+import os
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
+
 import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
 import gdown
-import os
 
-# 1. Define the Google Drive File ID
-# REPLACE THIS with your actual file ID from Step 1
 file_id = '1822ImFpXX8cuknje0mUVj8VFLPOdaU2w'
 
 @st.cache_resource
@@ -20,10 +20,7 @@ def load_model_from_drive():
         gdown.download(url, output_path, quiet=False)
     
     # Load the model
-    model = tf.keras.models.load_model(
-        output_path, 
-        custom_objects={'TFOpLambda': tf.keras.layers.Lambda}
-    )
+    model = tf.keras.models.load_model(output_path)
     return model
 
 # Load the model (this triggers the download only on the first run)
@@ -73,4 +70,5 @@ if file is not None:
         
         st.success(f"Prediction: {predicted_class}")
         st.info(f"Confidence: {confidence:.2f}%")
+
 
