@@ -48,7 +48,7 @@ st.title("Plant Disease Classifier 🌿")
 st.write("Upload an image of a plant leaf to detect diseases.")
 
 file = st.file_uploader("Choose a leaf image", type=["jpg", "png", "jpeg"])
-
+st.info("📸 Tip: For best results, take a close-up photo containing ONE leaf in the center.")
 if file is not None:
     image = Image.open(file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
@@ -89,4 +89,5 @@ if file is not None:
 
     st.success(f"Prediction: {predicted_class}")
     st.info(f"Confidence: {confidence_percent:.2f}%")
+
 
