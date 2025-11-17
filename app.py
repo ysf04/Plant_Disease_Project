@@ -20,7 +20,10 @@ def load_model_from_drive():
         gdown.download(url, output_path, quiet=False)
     
     # Load the model
-    model = tf.keras.models.load_model(output_path)
+    model = tf.keras.models.load_model(
+        output_path, 
+        custom_objects={'TFOpLambda': tf.keras.layers.Lambda}
+    )
     return model
 
 # Load the model (this triggers the download only on the first run)
@@ -70,3 +73,4 @@ if file is not None:
         
         st.success(f"Prediction: {predicted_class}")
         st.info(f"Confidence: {confidence:.2f}%")
+
