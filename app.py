@@ -2,18 +2,34 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import gdown
+import os
 
-# 1. Load the Model once
+# 1. Define the Google Drive File ID
+# REPLACE THIS with your actual file ID from Step 1
+file_id = '1822ImFpXX8cuknje0mUVj8VFLPOdaU2w'
+
 @st.cache_resource
-def load_model():
-    # Load your specific trained model
-    model = tf.keras.models.load_model('plant_disease_model.h5')
+def load_model_from_drive():
+    output_path = 'plant_disease_model.h5'
+    
+    # Check if file already exists to avoid redownloading
+    if not os.path.exists(output_path):
+        url = f'https://drive.google.com/uc?id={file_id}'
+        st.write("Downloading model... this may take a minute.")
+        gdown.download(url, output_path, quiet=False)
+    
+    # Load the model
+    model = tf.keras.models.load_model(output_path)
     return model
 
-model = load_model()
+# Load the model (this triggers the download only on the first run)
+try:
+    model = load_model_from_drive()
+except Exception as e:
+    st.error(f"Error loading model: {e}")
 
-# 2. Define the Class Names
-# These are the 38 classes from the Plant Village dataset (Alphabetical order)
+# 2. Define Class Names (Same as before)
 class_names = [
     'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
     'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
@@ -37,24 +53,20 @@ st.write("Upload an image of a plant leaf to detect diseases.")
 file = st.file_uploader("Choose a leaf image", type=["jpg", "png", "jpeg"])
 
 if file is not None:
-    # Display the uploaded image
     image = Image.open(file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
     
-    # 4. Preprocess the image for the model
-    # Resize to 224x224 (standard for most transfer learning models like ResNet/MobileNet)
-    # If your model used 256x256, change this to (256, 256)
-    img_array = image.resize((224, 224))
-    
-    # Convert to array and normalize
+    # Preprocessing
+    img_array = image.resize((224, 224)) # Ensure this matches your training input
     img_array = np.array(img_array)
-    img_array = img_array.astype('float32') / 255.0  # Normalize pixel values
-    img_array = np.expand_dims(img_array, axis=0)     # Add batch dimension (1, 224, 224, 3)
+    img_array = img_array.astype('float32') / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-    # 5. Make Prediction
-    predictions = model.predict(img_array)
-    predicted_class = class_names[np.argmax(predictions)]
-    confidence = 100 * np.max(predictions)
-
-    st.success(f"Prediction: {predicted_class}")
-    st.info(f"Confidence: {confidence:.2f}%")
+    # Prediction
+    if model:
+        predictions = model.predict(img_array)
+        predicted_class = class_names[np.argmax(predictions)]
+        confidence = 100 * np.max(predictions)
+        
+        st.success(f"Prediction: {predicted_class}")
+        st.info(f"Confidence: {confidence:.2f}%")
