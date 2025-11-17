@@ -1,35 +1,16 @@
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-os.environ['TF_USE_LEGACY_KERAS'] = '1'
 import streamlit as st
-import tensorflow as tf
 import numpy as np
 from PIL import Image
+import tensorflow as tf # Or 'import tflite_runtime.interpreter as tflite'
 import gdown
+import os
 
-file_id = '1822ImFpXX8cuknje0mUVj8VFLPOdaU2w'
+# --- CONFIGURATION ---
+# REPLACE THIS with the Google Drive ID of your NEW .tflite file
+file_id = 'YOUR_NEW_TFLITE_FILE_ID' 
+model_filename = 'plant_disease_model.tflite'
 
-@st.cache_resource
-def load_model_from_drive():
-    output_path = 'plant_disease_model.h5'
-    
-    # Check if file already exists to avoid redownloading
-    if not os.path.exists(output_path):
-        url = f'https://drive.google.com/uc?id={file_id}'
-        st.write("Downloading model... this may take a minute.")
-        gdown.download(url, output_path, quiet=False)
-    
-    # Load the model
-    model = tf.keras.models.load_model(output_path)
-    return model
-
-# Load the model (this triggers the download only on the first run)
-try:
-    model = load_model_from_drive()
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-
-# 2. Define Class Names (Same as before)
+# Class names (same as before)
 class_names = [
     'Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy',
     'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy',
@@ -46,30 +27,58 @@ class_names = [
     'Tomato___healthy'
 ]
 
-# 3. App Interface
-st.title("Plant Disease Classifier 🌿")
-st.write("Upload an image of a plant leaf to detect diseases.")
+@st.cache_resource
+def load_tflite_model():
+    if not os.path.exists(model_filename):
+        url = f'https://drive.google.com/uc?id={file_id}'
+        gdown.download(url, model_filename, quiet=False)
 
+    # Initialize the TFLite Interpreter
+    interpreter = tf.lite.Interpreter(model_path=model_filename)
+    interpreter.allocate_tensors()
+    return interpreter
+
+# Load the model (This will be instant now!)
+interpreter = load_tflite_model()
+
+# Get input and output details to know how to feed data
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+st.title("Plant Disease Classifier (TFLite) 🌿")
 file = st.file_uploader("Choose a leaf image", type=["jpg", "png", "jpeg"])
 
 if file is not None:
     image = Image.open(file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
     
-    # Preprocessing
-    img_array = image.resize((224, 224)) # Ensure this matches your training input
-    img_array = np.array(img_array)
-    img_array = img_array.astype('float32') / 255.0
+    # --- PREPROCESSING FOR TFLITE ---
+    # TFLite is strict about shapes. We must match input_details.
+    
+    # 1. Resize to (224, 224)
+    img = image.resize((224, 224))
+    
+    # 2. Convert to array and normalize
+    img_array = np.array(img, dtype=np.float32)
+    img_array = img_array / 255.0
+    
+    # 3. Add batch dimension (1, 224, 224, 3)
     img_array = np.expand_dims(img_array, axis=0)
 
-    # Prediction
-    if model:
-        predictions = model.predict(img_array)
-        predicted_class = class_names[np.argmax(predictions)]
-        confidence = 100 * np.max(predictions)
-        
-        st.success(f"Prediction: {predicted_class}")
-        st.info(f"Confidence: {confidence:.2f}%")
+    # --- INFERENCE ---
+    # Set the input tensor
+    interpreter.set_tensor(input_details[0]['index'], img_array)
+    
+    # Run the model
+    interpreter.invoke()
+    
+    # Get the output tensor
+    predictions = interpreter.get_tensor(output_details[0]['index'])
+    
+    # --- RESULTS ---
+    predicted_class = class_names[np.argmax(predictions)]
+    confidence = 100 * np.max(predictions)
 
-
+    st.success(f"Prediction: {predicted_class}")
+    st.info(f"Confidence: {confidence:.2f}%")
 
