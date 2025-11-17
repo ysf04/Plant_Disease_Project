@@ -90,9 +90,20 @@ if file is not None:
     output_details = interpreter.get_output_details()
     predictions = interpreter.get_tensor(output_details[0]['index'])
     
-    # ... rest of results code ...
+# 6. Decode Results
+    # Finds the highest probability in the prediction array
+    predicted_class = class_names[np.argmax(predictions)]
+    confidence = np.max(predictions)
+    
+    # Check if confidence is 0-1 or 0-100 and format accordingly
+    if confidence <= 1.0:
+        confidence_percent = confidence * 100
+    else:
+        confidence_percent = confidence
+
     st.success(f"Prediction: {predicted_class}")
-    st.info(f"Confidence: {confidence:.2f}%")
+    st.info(f"Confidence: {confidence_percent:.2f}%")
+
 
 
 
